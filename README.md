@@ -136,18 +136,6 @@ chmod +x install-mac.command
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 重启 Claude Desktop。
 
-## 注意
-
-Claude Desktop 更新后可能会覆盖补丁，需要重新运行 `install-mac.command` 或 `install-windows.bat`。
-
-3P gateway 模型名校验补丁只解决启动阶段 `inferenceModels` 名称被拒的问题，不保证第三方模型完全兼容 Claude Desktop / Claude Code 的协议与工具调用行为。Claude Desktop 更新后如果内部 bundle 结构变化，脚本会停止并提示补丁失败，而不是猜测修改。
-
-不要手动用十六进制编辑器或简单字符串替换直接修改 `app.asar`。Electron 会校验 asar header 里的文件完整性；macOS 还会校验 `Info.plist` 里的 `ElectronAsarIntegrity`，Windows 还会校验 `Claude.exe` 内嵌的 asar header hash。只改文件内容会导致启动时报 `ASAR Integrity Violation` 或直接崩溃。本脚本会同步更新这些完整性信息。
-
-如果打开后 macOS 提示无法验证开发者或应用损坏，通常是因为 Claude Desktop 更新后，补丁修改资源文件导致原始签名失效。新版脚本会自动执行本机 ad-hoc 重签名、保留原 app 的 entitlements，并确保内部 app/framework 使用一致签名；如果你已经用旧版脚本打过补丁且遇到 `virtualization_entitlement_missing` / `Claude 的安装似乎已损坏`，请先恢复备份或重新安装官方 Claude.app，再重新运行 `install-mac.command`。
-
-不要只手动运行单条 `codesign --deep` 命令修复当前应用。Claude.app 内部还有 Electron Framework、Helper app、`.node` 原生模块和动态库，单条命令容易造成主程序和内部 framework 的 Team ID 不一致，启动时会出现 `mapping process and mapped file ... have different Team IDs`。请重新运行 `install-mac.command`，让脚本按从内到外的顺序重签。
-
 ## 卸载 / 恢复
 
 macOS 脚本安装前会在 `/Applications` 下生成备份，名称类似：
