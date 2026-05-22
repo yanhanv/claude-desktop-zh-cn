@@ -11,6 +11,13 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 
 ![Claude Desktop 中文界面截图](docs/images/claude-desktop-zh-cn-home.png) ![Claude Desktop 中文设置界面截图](docs/images/claude-desktop-zh-cn-settings.png)
 
+<div align="center">
+
+**遇到问题请及时反馈，欢迎扫码加入 claude desktop 交流。**
+
+<img src="docs/images/wechat-group.jpg" alt="claude desktop 交流群二维码" width="360">
+
+</div>
 
 ## 功能特点
 
