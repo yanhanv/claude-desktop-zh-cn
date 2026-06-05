@@ -170,9 +170,9 @@ def copy_app(src: Path, dst: Path) -> None:
 
 def patch_language_whitelist(app: Path, lang_code: str) -> Path:
     assets_dir = app / FRONTEND_ASSETS_REL
-    candidates = sorted(assets_dir.glob("index-*.js"))
+    candidates = sorted(assets_dir.glob("*.js"))
     if not candidates:
-        raise SystemExit(f"Cannot find frontend index bundle in {assets_dir}")
+        raise SystemExit(f"Cannot find frontend JS bundle in {assets_dir}")
 
     replacement = f'{BASE_LANGUAGE_LIST},"{lang_code}"]'
 
@@ -631,6 +631,16 @@ def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     matches = [
         match
         for match in pattern.finditer(text)
+        if "main_view_dom_ready" in match.group("body")
+    ]
+    if len(matches) > 1:
+        raise SystemExit("Could not patch online locale main-process hook: multiple main_view_dom_ready handlers found.")
+    if matches:
+        return matches[0]
+
+    matches = [
+        match
+        for match in pattern.finditer(text)
         if ".vite/build/mainView.js" in text[max(0, match.start() - 2500) : match.start()]
     ]
     if len(matches) > 1:
@@ -658,9 +668,11 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
     mapping = build_online_translation_map(app, lang_code)
     handler = find_main_view_dom_ready_handler(text)
     if handler is None:
-        if had_existing:
-            raise SystemExit("Could not refresh online locale main-process patch.")
-        raise SystemExit("Could not find main view dom-ready anchor for online locale patch.")
+        print(
+            "Warning: could not find main view dom-ready anchor for online locale patch; "
+            "skipping online claude.ai DOM translation."
+        )
+        return
 
     injection = build_online_locale_main_process_script(
         lang_code,
