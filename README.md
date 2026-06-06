@@ -53,6 +53,10 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 6. Claude 会自动重新打开。
 7. 如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
+如果需要调整自动更新，可再次运行 `install-mac.command`，选择 `4`，再输入 `y` 禁止自动更新，或输入 `n` 允许自动更新。
+
+如果需要把 CC Switch skills 同步到 Claude Desktop，可再次运行 `install-mac.command`，选择 `5`，再输入 `y` 同步，或输入 `n` 删除之前的同步。脚本会扫描 `~/.cc-switch/skills` 下所有包含 `SKILL.md` 的 skill；同步时只把 Claude Desktop 中尚不存在的 skill 以软链接加入本地 skills 目录并更新 Claude Desktop 的 skills manifest，同名 skill 会跳过；删除同步时只清理指向 `~/.cc-switch/skills` 的软链接和对应 manifest 记录，不删除 CC Switch 源目录，也不覆盖或删除 Desktop 里已有版本。同步或删除后重启 Claude Desktop 生效。
+
 ### Windows
 
 1. 退出 Claude Desktop。
@@ -98,6 +102,8 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 - 写入 `~/Library/Application Support/Claude/config.json`，设置 `"locale"` 为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`），并在 `claude.ai` 页面加载前同步其前端语言状态。
 - 对修改后的 Claude.app 及其内部 app/framework/原生二进制做一致的本机 ad-hoc 重签名，并清除 `com.apple.quarantine` 隔离属性。
 - 重新启动 Claude。
+- 可选菜单项 `4` 用 `y/n` 控制 Claude-3p 自动更新：`y` 禁止自动更新，`n` 允许自动更新。
+- 可选菜单项 `5` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `~/.cc-switch/skills` 中缺失的 skill 软链接到 Claude Desktop 的本地 skills 目录，并更新对应 `manifest.json`；`n` 只删除之前同步产生的 CC Switch 软链接和对应 manifest 记录。该操作不需要管理员权限，不会覆盖同名 skill。
 
 ## Windows 脚本会做什么
 

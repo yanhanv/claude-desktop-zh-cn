@@ -63,15 +63,29 @@ if [ -z "$ACTION" ]; then
   echo "  [1] 安装中文补丁(官方订阅与第三方api均可使用：Cowork 沙箱/工作区可能不可用)"
   echo "  [2] 安装中文补丁(第三方api可用：安全模式，第三方模型需借助ccswitch映射(建议第三方api选此项))"
   echo "  [3] 恢复原样 / 卸载补丁"
-  echo "  [4] 禁止自动更新"
-  echo "  [5] 允许自动更新"
+  echo "  [4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
+  echo "  [5] CC Switch skills 同步设置（y=同步，n=删除之前的同步）"
   echo
   read -rp "请输入选项 [1/2/3/4/5，默认 1]: " action_choice
   case "${action_choice:-1}" in
     2) ACTION="install"; SKIP_ASAR_PATCH="1" ;;
     3) ACTION="restore" ;;
-    4) ACTION="disable-updates" ;;
-    5) ACTION="enable-updates" ;;
+    4)
+      read -rp "是否禁止自动更新？[y=禁止 / n=允许]: " update_choice
+      case "$update_choice" in
+        y|Y) ACTION="disable-updates" ;;
+        n|N) ACTION="enable-updates" ;;
+        *) echo "无效输入，请输入 y 或 n。"; exit 1 ;;
+      esac
+      ;;
+    5)
+      read -rp "是否同步 CC Switch skills？[y=同步 / n=删除之前的同步]: " skills_choice
+      case "$skills_choice" in
+        y|Y) ACTION="sync-skills" ;;
+        n|N) ACTION="unsync-skills" ;;
+        *) echo "无效输入，请输入 y 或 n。"; exit 1 ;;
+      esac
+      ;;
     *) ACTION="install" ;;
   esac
   echo
@@ -82,7 +96,7 @@ if [ "$ACTION" = "uninstall" ]; then
 fi
 
 # Language selection
-if [ "$ACTION" = "restore" ] || [ "$ACTION" = "disable-updates" ] || [ "$ACTION" = "enable-updates" ]; then
+if [ "$ACTION" = "restore" ] || [ "$ACTION" = "disable-updates" ] || [ "$ACTION" = "enable-updates" ] || [ "$ACTION" = "sync-skills" ] || [ "$ACTION" = "unsync-skills" ]; then
   LANG_CODE=""
 elif [ -z "${CLAUDE_LANG:-}" ]; then
   echo "请选择要安装的语言："
@@ -115,7 +129,7 @@ if [ "$ACTION" = "install" ]; then
 fi
 
 NEEDS_SUDO=1
-if [ "$ACTION" = "disable-updates" ] || [ "$ACTION" = "enable-updates" ]; then
+if [ "$ACTION" = "disable-updates" ] || [ "$ACTION" = "enable-updates" ] || [ "$ACTION" = "sync-skills" ] || [ "$ACTION" = "unsync-skills" ]; then
   NEEDS_SUDO=0
 fi
 for arg in "$@"; do
@@ -154,6 +168,10 @@ elif [ "$ACTION" = "disable-updates" ]; then
   "$PYTHON" "$PATCHER" --user-home "$USER_HOME" --set-auto-updates disabled "$@"
 elif [ "$ACTION" = "enable-updates" ]; then
   "$PYTHON" "$PATCHER" --user-home "$USER_HOME" --set-auto-updates enabled "$@"
+elif [ "$ACTION" = "sync-skills" ]; then
+  "$PYTHON" "$PATCHER" --user-home "$USER_HOME" --sync-cc-switch-skills "$@"
+elif [ "$ACTION" = "unsync-skills" ]; then
+  "$PYTHON" "$PATCHER" --user-home "$USER_HOME" --unsync-cc-switch-skills "$@"
 else
   "$PYTHON" "$PATCHER" --user-home "$USER_HOME" --lang "$LANG_CODE" --launch ${SKIP_ASAR_ARG:+"$SKIP_ASAR_ARG"} "$@"
 fi

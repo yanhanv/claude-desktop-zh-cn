@@ -1393,6 +1393,250 @@ def set_third_party_auto_updates(user_home: Path, enabled: bool, dry_run: bool =
     return True
 
 
+def read_skill_frontmatter(skill_md: Path) -> dict[str, str]:
+    text = skill_md.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+
+    end = None
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end = index
+            break
+    if end is None:
+        return {}
+
+    data: dict[str, str] = {}
+    key = ""
+    value_lines: list[str] = []
+
+    def flush() -> None:
+        nonlocal key, value_lines
+        if key:
+            data[key] = "\n".join(line.strip() for line in value_lines).strip()
+        key = ""
+        value_lines = []
+
+    for raw_line in lines[1:end]:
+        if not raw_line.strip():
+            if key and value_lines:
+                value_lines.append("")
+            continue
+        if raw_line[:1].isspace():
+            if key:
+                value_lines.append(raw_line.strip())
+            continue
+        match = re.match(r"^([A-Za-z0-9_-]+):(?:\s*(.*))?$", raw_line)
+        if not match:
+            continue
+        flush()
+        key = match.group(1)
+        value = (match.group(2) or "").strip()
+        value_lines = [value] if value else []
+    flush()
+    return data
+
+
+def discover_cc_switch_skills(skills_dir: Path) -> list[dict[str, Any]]:
+    if not skills_dir.exists():
+        raise SystemExit(f"CC Switch skills directory not found: {skills_dir}")
+    if not skills_dir.is_dir():
+        raise SystemExit(f"CC Switch skills path is not a directory: {skills_dir}")
+
+    skills: list[dict[str, Any]] = []
+    for path in sorted(skills_dir.iterdir(), key=lambda item: item.name):
+        if not path.is_dir():
+            continue
+        skill_md = path / "SKILL.md"
+        if not skill_md.is_file():
+            continue
+        frontmatter = read_skill_frontmatter(skill_md)
+        name = frontmatter.get("name", "").strip() or path.name
+        if not name:
+            continue
+        if "/" in name or "\\" in name or name in {".", ".."}:
+            print(f"Invalid skill name, skipped: {name}")
+            continue
+        description = frontmatter.get("description", "").strip()
+        skills.append({"name": name, "description": description, "path": path})
+    return skills
+
+
+def find_claude_desktop_skills_plugin_root(user_home: Path) -> Path:
+    base = user_home / "Library/Application Support/Claude-3p/local-agent-mode-sessions/skills-plugin"
+    if not base.exists():
+        raise SystemExit(f"Claude Desktop skills-plugin directory not found: {base}")
+
+    candidates: list[Path] = []
+    for org_dir in sorted(base.iterdir(), key=lambda item: item.name):
+        if not org_dir.is_dir():
+            continue
+        for plugin_dir in sorted(org_dir.iterdir(), key=lambda item: item.name):
+            if (
+                plugin_dir.is_dir()
+                and (plugin_dir / "manifest.json").is_file()
+                and (plugin_dir / "skills").is_dir()
+            ):
+                candidates.append(plugin_dir)
+
+    if not candidates:
+        raise SystemExit(f"No Claude Desktop skills plugin root found under: {base}")
+    return max(candidates, key=lambda path: (path / "manifest.json").stat().st_mtime)
+
+
+def load_skills_manifest(manifest_path: Path, dry_run: bool = False) -> dict[str, Any]:
+    data = load_json_object_or_backup(manifest_path, dry_run=dry_run)
+    skills = data.get("skills")
+    if not isinstance(skills, list):
+        data["skills"] = []
+    return data
+
+
+def sync_cc_switch_skills(user_home: Path, skills_dir: Path, dry_run: bool = False) -> bool:
+    plugin_root = find_claude_desktop_skills_plugin_root(user_home)
+    desktop_skills_dir = plugin_root / "skills"
+    manifest_path = plugin_root / "manifest.json"
+    manifest = load_skills_manifest(manifest_path, dry_run=dry_run)
+    manifest_skills = manifest["skills"]
+    existing_manifest_names = {
+        str(item.get("name"))
+        for item in manifest_skills
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+
+    cc_skills = discover_cc_switch_skills(skills_dir)
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    added = 0
+    skipped = 0
+
+    print(f"Claude Desktop skills plugin: {plugin_root}")
+    print(f"CC Switch skills source: {skills_dir}")
+
+    for skill in cc_skills:
+        name = str(skill["name"])
+        source = Path(skill["path"])
+        target = desktop_skills_dir / name
+
+        if target.exists() or target.is_symlink() or name in existing_manifest_names:
+            print(f"已存在，跳过: {name}")
+            skipped += 1
+            continue
+
+        print(f"{'[dry-run] Would sync' if dry_run else '同步'}: {name} -> {source}")
+        if not dry_run:
+            os.symlink(source, target, target_is_directory=True)
+        manifest_skills.append(
+            {
+                "skillId": name,
+                "name": name,
+                "description": str(skill["description"]),
+                "creatorType": "user",
+                "syncManaged": False,
+                "updatedAt": now,
+                "enabled": True,
+            }
+        )
+        existing_manifest_names.add(name)
+        added += 1
+
+    if added:
+        manifest["lastUpdated"] = int(time.time() * 1000)
+        backup = manifest_path.with_name("manifest.json.bak-before-cc-switch-sync")
+        if dry_run:
+            print(f"[dry-run] Would back up manifest to: {backup}")
+            print(f"[dry-run] Would update manifest: {manifest_path}")
+        else:
+            shutil.copy2(manifest_path, backup)
+            chown_to_sudo_user(backup)
+            save_json(manifest_path, manifest)
+            chown_to_sudo_user(manifest_path)
+
+    print(f"同步完成：新增 {added} 个，跳过 {skipped} 个。")
+    if dry_run:
+        print("[dry-run] 未写入任何文件。")
+    return True
+
+
+def path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def unsync_cc_switch_skills(user_home: Path, skills_dir: Path, dry_run: bool = False) -> bool:
+    plugin_root = find_claude_desktop_skills_plugin_root(user_home)
+    desktop_skills_dir = plugin_root / "skills"
+    manifest_path = plugin_root / "manifest.json"
+    manifest = load_skills_manifest(manifest_path, dry_run=dry_run)
+    manifest_skills = manifest["skills"]
+    cc_skills = discover_cc_switch_skills(skills_dir)
+    cc_root = skills_dir.resolve()
+    removed_names: set[str] = set()
+    skipped = 0
+
+    print(f"Claude Desktop skills plugin: {plugin_root}")
+    print(f"CC Switch skills source: {skills_dir}")
+
+    for skill in cc_skills:
+        name = str(skill["name"])
+        target = desktop_skills_dir / name
+        if not target.is_symlink():
+            print(f"不是 CC Switch 同步软链接，跳过: {name}")
+            skipped += 1
+            continue
+
+        try:
+            resolved_target = target.resolve(strict=False)
+        except OSError:
+            print(f"无法解析软链接，跳过: {target}")
+            skipped += 1
+            continue
+
+        if not path_is_within(resolved_target, cc_root):
+            print(f"软链接目标不在 CC Switch skills 目录内，跳过: {name}")
+            skipped += 1
+            continue
+
+        print(f"{'[dry-run] Would remove sync' if dry_run else '删除同步'}: {name} -> {resolved_target}")
+        if not dry_run:
+            target.unlink()
+        removed_names.add(name)
+
+    if removed_names:
+        kept_skills = [
+            item
+            for item in manifest_skills
+            if not (
+                isinstance(item, dict)
+                and isinstance(item.get("name"), str)
+                and item.get("name") in removed_names
+            )
+        ]
+        removed_manifest_count = len(manifest_skills) - len(kept_skills)
+        manifest["skills"] = kept_skills
+        manifest["lastUpdated"] = int(time.time() * 1000)
+        backup = manifest_path.with_name("manifest.json.bak-before-cc-switch-sync")
+        if dry_run:
+            print(f"[dry-run] Would remove {removed_manifest_count} manifest entries")
+            print(f"[dry-run] Would back up manifest to: {backup}")
+            print(f"[dry-run] Would update manifest: {manifest_path}")
+        else:
+            shutil.copy2(manifest_path, backup)
+            chown_to_sudo_user(backup)
+            save_json(manifest_path, manifest)
+            chown_to_sudo_user(manifest_path)
+        print(f"取消同步完成：删除 {len(removed_names)} 个软链接，删除 {removed_manifest_count} 条 manifest 记录，跳过 {skipped} 个。")
+    else:
+        print(f"取消同步完成：删除 0 个，跳过 {skipped} 个。")
+
+    if dry_run:
+        print("[dry-run] 未写入任何文件。")
+    return True
+
+
 def backup_and_replace(original: Path, patched: Path, dry_run: bool) -> Path:
     start = time.perf_counter()
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -1502,12 +1746,43 @@ def main() -> int:
         choices=["enabled", "disabled"],
         help="Only update Claude-3p auto-update setting, then exit",
     )
+    parser.add_argument(
+        "--sync-cc-switch-skills",
+        action="store_true",
+        help="Link missing CC Switch skills into Claude Desktop and update the skills manifest, then exit",
+    )
+    parser.add_argument(
+        "--unsync-cc-switch-skills",
+        action="store_true",
+        help="Remove CC Switch skill symlinks from Claude Desktop and update the skills manifest, then exit",
+    )
+    parser.add_argument(
+        "--cc-switch-skills-dir",
+        type=Path,
+        help="CC Switch skills directory (default: USER_HOME/.cc-switch/skills)",
+    )
     args = parser.parse_args()
 
     if args.set_auto_updates:
         set_third_party_auto_updates(
             args.user_home,
             enabled=args.set_auto_updates == "enabled",
+            dry_run=args.dry_run,
+        )
+        return 0
+
+    if args.sync_cc_switch_skills:
+        sync_cc_switch_skills(
+            args.user_home,
+            args.cc_switch_skills_dir or args.user_home / ".cc-switch/skills",
+            dry_run=args.dry_run,
+        )
+        return 0
+
+    if args.unsync_cc_switch_skills:
+        unsync_cc_switch_skills(
+            args.user_home,
+            args.cc_switch_skills_dir or args.user_home / ".cc-switch/skills",
             dry_run=args.dry_run,
         )
         return 0
