@@ -64,7 +64,7 @@ if [ -z "$ACTION" ]; then
   echo "  [2] 安装中文补丁(第三方api可用：安全模式，第三方模型需借助ccswitch映射(建议第三方api选此项))"
   echo "  [3] 恢复原样 / 卸载补丁"
   echo "  [4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
-  echo "  [5] CC Switch skills 同步设置（y=同步，n=删除之前的同步）"
+  echo "  [5] 同步CC Switch skills （y=同步，n=删除之前的同步）"
   echo
   read -rp "请输入选项 [1/2/3/4/5，默认 1]: " action_choice
   case "${action_choice:-1}" in
