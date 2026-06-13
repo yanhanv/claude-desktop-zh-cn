@@ -1,8 +1,8 @@
 ﻿param(
     [switch]$Interactive,
     [switch]$SkipAsarPatch,
-    [ValidateSet("safe", "official", "full")]
-    [string]$PatchMode = "full",
+    [ValidateSet("safe", "official")]
+    [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
     [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
@@ -116,23 +116,21 @@ function Read-InteractiveSelection {
     Write-Host ""
     Write-Host "[1] 安装中文补丁(第三方 API 登录方式：Cowork 安全模式，第三方模型请用 ccswitch/别名映射)"
     Write-Host "[2] 安装中文补丁(官方账号登录方式：Cowork 沙箱/工作区不可用)"
-    Write-Host "[3] 安装中文补丁(第三方 API 登录方式：同时去除模型限制；Cowork 沙箱/工作区不可用)"
-    Write-Host "[4] 恢复原样 / 卸载补丁"
-    Write-Host "[5] 自动更新设置（y=开启自动更新，n=停止自动更新）"
-    Write-Host "[6] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[3] 恢复原样 / 卸载补丁"
+    Write-Host "[4] 自动更新设置（y=开启自动更新，n=停止自动更新）"
+    Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
-    $patchModeForInstall = "full"
+    $patchModeForInstall = "safe"
     $actionSelected = $false
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/Q]").Trim()
         switch -Regex ($actionSelection) {
             '^[1]$' { $patchModeForInstall = "safe"; $actionSelected = $true }
             '^[2]$' { $patchModeForInstall = "official"; $actionSelected = $true }
-            '^[3]$' { $patchModeForInstall = "full"; $actionSelected = $true }
-            '^[4]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
-            '^[5]$' {
+            '^[3]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
+            '^[4]$' {
                 $updateChoice = (Read-Host "是否开启自动更新？[y=开启自动更新 / n=停止自动更新]").Trim()
                 switch -Regex ($updateChoice) {
                     '^[Yy]$' { return @{ Action = "enable-updates"; Language = "zh-CN"; PatchMode = "safe" } }
@@ -143,7 +141,7 @@ function Read-InteractiveSelection {
                     }
                 }
             }
-            '^[6]$' {
+            '^[5]$' {
                 $skillsChoice = (Read-Host "是否同步 CC Switch skills？[y=开启同步 / n=删除同步]").Trim()
                 switch -Regex ($skillsChoice) {
                     '^[Yy]$' { return @{ Action = "sync-skills"; Language = "zh-CN"; PatchMode = "safe" } }
@@ -155,7 +153,7 @@ function Read-InteractiveSelection {
                 }
             }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -193,15 +191,11 @@ if ($SkipAsarPatch) {
 $LanguageCode = $Language
 
 function Test-OnlineAccountPatchEnabled {
-    return $PatchMode -eq "official" -or $PatchMode -eq "full"
-}
-
-function Test-Custom3PPatchEnabled {
-    return $PatchMode -eq "full"
+    return $PatchMode -eq "official"
 }
 
 function Test-AsarPatchEnabled {
-    return (Test-OnlineAccountPatchEnabled) -or (Test-Custom3PPatchEnabled)
+    return Test-OnlineAccountPatchEnabled
 }
 
 function Get-LanguageLabel {
@@ -947,110 +941,6 @@ function Find-BytePattern {
     return $matches
 }
 
-function Find-Custom3PValidationToggle {
-    param(
-        [byte[]]$Content,
-        [string]$ExprText
-    )
-
-    $contentText = [System.Text.Encoding]::ASCII.GetString($Content)
-    $pattern = 'const ([A-Za-z_$][A-Za-z0-9_$]*)=' + [regex]::Escape($ExprText) + '\|\|!1,([A-Za-z_$][A-Za-z0-9_$]*)='
-    $validMatches = New-Object System.Collections.Generic.List[object]
-
-    foreach ($match in [regex]::Matches($contentText, $pattern)) {
-        $flagName = $match.Groups[1].Value
-        $windowLength = [Math]::Min(2500, $contentText.Length - $match.Index)
-        $validationWindow = $contentText.Substring($match.Index, $windowLength)
-        if (
-            $validationWindow.Contains(('if(!' + $flagName + ')return{ok:!0}')) -and
-            $validationWindow.Contains('expected a gateway model route referencing an Anthropic model') -and
-            $validationWindow.Contains('Bedrock model')
-        ) {
-            $validMatches.Add($match)
-        }
-    }
-
-    if ($validMatches.Count -gt 1) {
-        throw "Could not patch custom 3P model validation: multiple matching toggles found."
-    }
-    if ($validMatches.Count -eq 1) {
-        return $validMatches[0]
-    }
-    return $null
-}
-
-function Test-Custom3PValidationRemoved {
-    param([byte[]]$Content)
-
-    $contentText = [System.Text.Encoding]::ASCII.GetString($Content)
-    if (
-        (-not $contentText.Contains('expected a gateway model route referencing an Anthropic model')) -and
-        (-not $contentText.Contains('Bedrock model'))
-    ) {
-        return $true
-    }
-    return $false
-}
-
-function Find-Custom3PNameValidator {
-    param(
-        [byte[]]$Content,
-        [bool]$Patched
-    )
-
-    $contentText = [System.Text.Encoding]::ASCII.GetString($Content)
-    $pattern = 'function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{const ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}'
-    $validMatches = New-Object System.Collections.Generic.List[object]
-
-    foreach ($match in [regex]::Matches($contentText, $pattern)) {
-        $windowStart = [Math]::Max(0, $match.Index - 1500)
-        $windowLength = [Math]::Min(3000 + ($match.Index - $windowStart), $contentText.Length - $windowStart)
-        $validationWindow = $contentText.Substring($windowStart, $windowLength)
-        if (
-            $validationWindow.Contains('deepseek') -and
-            $validationWindow.Contains('expected a gateway model route referencing an Anthropic model')
-        ) {
-            $expr = $match.Groups[4].Value.Trim()
-            if ($Patched -and ($expr -eq '!0')) {
-                $validMatches.Add($match)
-            }
-            elseif (
-                (-not $Patched) -and
-                $match.Groups[4].Value.Contains('.test(') -and
-                $match.Groups[4].Value.Contains('.some(') -and
-                $match.Groups[4].Value.Contains('.includes(')
-            ) {
-                $validMatches.Add($match)
-            }
-        }
-    }
-
-    if ($validMatches.Count -gt 1) {
-        throw "Could not patch custom 3P model validation: multiple matching validators found."
-    }
-    if ($validMatches.Count -eq 1) {
-        return $validMatches[0]
-    }
-    return $null
-}
-
-function Patch-Custom3PNameValidator {
-    param([byte[]]$Content)
-
-    $match = Find-Custom3PNameValidator $Content $false
-    if ($null -eq $match) {
-        return $false
-    }
-
-    $expr = $match.Groups[4].Value
-    $replacementText = '!0' + (' ' * ($expr.Length - 2))
-    $replacement = [System.Text.Encoding]::ASCII.GetBytes($replacementText)
-    if ($replacement.Length -ne $expr.Length) {
-        throw "Internal patch error: custom 3P validator replacement changed length."
-    }
-    [System.Array]::Copy($replacement, 0, $Content, $match.Groups[4].Index, $replacement.Length)
-    return $true
-}
 
 function Get-Sha256Hex {
     param([byte[]]$Bytes)
@@ -1718,166 +1608,6 @@ function Patch-HardcodedFrontendStrings {
     }
 
     Write-Host "  patched hardcoded frontend strings: $patchedStrings replacements in $patchedFiles files" -ForegroundColor Green
-}
-
-function Patch-Custom3PModelValidation {
-    param([string]$ResourcesPath)
-
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
-    $oldExpr = [System.Text.Encoding]::ASCII.GetBytes('process.env.NODE_ENV!=="production"')
-    $newExprText = "false".PadRight($oldExpr.Length, " ")
-
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
-    $parsed = Read-AsarHeader $data $asarPath
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
-    $match = Find-Custom3PValidationToggle $content 'process.env.NODE_ENV!=="production"'
-    if ($null -eq $match) {
-        $patchedMatch = Find-Custom3PValidationToggle $content $newExprText
-        if ($null -ne $patchedMatch) {
-            Write-Host "  custom 3P model-name validation already patched" -ForegroundColor Green
-            Sync-ClaudeExeAsarIntegrity $ResourcesPath
-            return
-        }
-        $patchedNameValidator = Find-Custom3PNameValidator $content $true
-        if ($null -ne $patchedNameValidator) {
-            Write-Host "  custom 3P model-name validation already patched" -ForegroundColor Green
-            Sync-ClaudeExeAsarIntegrity $ResourcesPath
-            return
-        }
-        if (-not (Patch-Custom3PNameValidator $content)) {
-            if (Test-Custom3PValidationRemoved $content) {
-                Write-Host "  custom 3P model-name validation not present (removed in this Claude version)" -ForegroundColor Green
-                return
-            }
-            throw "Could not patch custom 3P model validation. Claude bundle format may have changed."
-        }
-    }
-    else {
-        $anchorText = $match.Value
-        $patchedAnchorText = 'const ' + $match.Groups[1].Value + '=' + $newExprText + '||!1,' + $match.Groups[2].Value + '='
-        $anchor = [System.Text.Encoding]::ASCII.GetBytes($anchorText)
-        $patchedAnchor = [System.Text.Encoding]::ASCII.GetBytes($patchedAnchorText)
-        if ($anchor.Length -ne $patchedAnchor.Length) {
-            throw "Internal patch error: custom 3P validation replacement changed length."
-        }
-
-        $matchOffset = $match.Index
-        [System.Array]::Copy($patchedAnchor, 0, $content, $matchOffset, $patchedAnchor.Length)
-    }
-
-    Backup-ModifiedFile $ResourcesPath $asarPath
-    [System.Array]::Copy($content, 0, $data, [int]$contentOffset, $content.Length)
-
-    $entry.integrity = Get-AsarFileIntegrity $content
-    $updatedHeaderString = $header | ConvertTo-Json -Compress -Depth 100
-    $updatedHeader = Encode-AsarHeader $updatedHeaderString $headerSize
-    [System.Array]::Copy($updatedHeader, 0, $data, 0, $updatedHeader.Length)
-
-    [System.IO.File]::WriteAllBytes($asarPath, $data)
-    Sync-ClaudeExeAsarIntegrity $ResourcesPath
-    Write-Host "  patched custom 3P model-name validation in app.asar" -ForegroundColor Green
-}
-
-function Patch-CoworkModernInstallerCheck {
-    param([string]$ResourcesPath)
-
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
-    $parsed = Read-AsarHeader $data $asarPath
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
-    $contentText = [System.Text.Encoding]::ASCII.GetString($content)
-
-    if (
-        $contentText.Contains('function _I(){return mo?(XX="patched",sP=!0,!0):!1}') -or
-        $contentText.Contains('function LI(){return io?(nAA="patched",A2=!0,!0):!1}')
-    ) {
-        Write-Host "  Cowork modern installer check already patched" -ForegroundColor Green
-        Sync-ClaudeExeAsarIntegrity $ResourcesPath
-        return
-    }
-
-    $patches = @(
-        @{
-            Source = 'function _I(){return mo?sP!==void 0?sP:process.windowsStore?(XX="windowsStore",sP=!0,!0):uVe()?(XX="appPath",sP=!0,!0):(XX=null,sP=!1,!1):!1}'
-            Target = 'function _I(){return mo?(XX="patched",sP=!0,!0):!1}'
-        },
-        @{
-            Source = 'function LI(){return io?A2!==void 0?A2:process.windowsStore?(nAA="windowsStore",A2=!0,!0):pje()?(nAA="appPath",A2=!0,!0):(nAA=null,A2=!1,!1):!1}'
-            Target = 'function LI(){return io?(nAA="patched",A2=!0,!0):!1}'
-        }
-    )
-
-    $selectedPatch = $null
-    $sourceIndex = -1
-    foreach ($candidate in $patches) {
-        $source = [string]$candidate["Source"]
-        $candidateIndex = $contentText.IndexOf($source, [System.StringComparison]::Ordinal)
-        if ($candidateIndex -lt 0) {
-            continue
-        }
-        if ($contentText.IndexOf($source, $candidateIndex + $source.Length, [System.StringComparison]::Ordinal) -ge 0) {
-            Write-Host "  [警告] Cowork modern installer check 匹配到多个候选，跳过该补丁；中文补丁和第三方模型名补丁已继续保留。" -ForegroundColor DarkYellow
-            return
-        }
-        $selectedPatch = $candidate
-        $sourceIndex = $candidateIndex
-        break
-    }
-
-    if ($null -eq $selectedPatch) {
-        Write-Host "  [警告] 未找到 Cowork modern installer check 补丁点，跳过该补丁；中文补丁和第三方模型名补丁已继续保留。" -ForegroundColor DarkYellow
-        return
-    }
-
-    $source = [string]$selectedPatch["Source"]
-    $target = [string]$selectedPatch["Target"]
-    if ($target.Length -gt $source.Length) {
-        throw "Internal patch error: Cowork installer check replacement is longer than source."
-    }
-    $target = $target.PadRight($source.Length, " ")
-
-    $replacement = [System.Text.Encoding]::ASCII.GetBytes($target)
-    [System.Array]::Copy($replacement, 0, $content, $sourceIndex, $replacement.Length)
-
-    Backup-ModifiedFile $ResourcesPath $asarPath
-    [System.Array]::Copy($content, 0, $data, [int]$contentOffset, $content.Length)
-
-    $entry.integrity = Get-AsarFileIntegrity $content
-    $updatedHeaderString = $header | ConvertTo-Json -Compress -Depth 100
-    $updatedHeader = Encode-AsarHeader $updatedHeaderString $headerSize
-    [System.Array]::Copy($updatedHeader, 0, $data, 0, $updatedHeader.Length)
-
-    [System.IO.File]::WriteAllBytes($asarPath, $data)
-    Sync-ClaudeExeAsarIntegrity $ResourcesPath
-    Write-Host "  patched Cowork modern installer check in app.asar" -ForegroundColor Green
 }
 
 function Patch-HardcodedMainProcessMenuLabels {
@@ -2836,22 +2566,20 @@ function Install-WindowsLanguagePack {
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
 
     try {
-        Write-Step "[1/9] 检查安装模式"
+        Write-Step "[1/8] 检查安装模式"
         if ($PatchMode -eq "safe") {
-            Write-Host "  Cowork 兼容模式：无需第三方 API 配置检查。" -ForegroundColor Green
-        } elseif ($PatchMode -eq "official") {
-            Write-Host "  官方账号登录模式：无需第三方 API 配置检查。" -ForegroundColor Green
+            Write-Host "  Cowork 兼容模式。" -ForegroundColor Green
         } else {
-            Write-Host "  第三方 API 登录模式：无需第三方 API 配置检查。" -ForegroundColor Green
+            Write-Host "  官方账号登录模式。" -ForegroundColor Green
         }
 
-        Write-Step "[2/9] 检查语言资源"
+        Write-Step "[2/8] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
 
         Write-Step "关闭 Claude Desktop"
         Stop-ClaudeProcesses
 
-        Write-Step "[3/9] 查找 Claude Desktop"
+        Write-Step "[3/8] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
         $claudePath = $paths["App"]
         $resourcesPath = $paths["Resources"]
@@ -2859,17 +2587,17 @@ function Install-WindowsLanguagePack {
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
 
-        Write-Step "[4/9] 准备写入权限"
+        Write-Step "[4/8] 准备写入权限"
         Enable-WriteAccess $resourcesPath
         Remove-LegacyAppxForkArtifacts
 
-        Write-Step "[5/9] 写入 $label 资源"
+        Write-Step "[5/8] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
 
-        Write-Step "[6/9] 注册中文语言"
+        Write-Step "[6/8] 注册中文语言"
         Register-Language $resourcesPath $LanguageCode
 
-        Write-Step "[7/9] 汉化硬编码界面文本"
+        Write-Step "[7/8] 汉化硬编码界面文本"
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
         if (Test-OnlineAccountPatchEnabled) {
@@ -2881,19 +2609,11 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping main-process menu label patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[8/9] 修复第三方模型名校验"
-        if (Test-Custom3PPatchEnabled) {
-            Patch-Custom3PModelValidation $resourcesPath
-            Patch-CoworkModernInstallerCheck $resourcesPath
-        } else {
-            Write-Host "  skipping 3P model validation patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
-        }
-
         if (-not (Test-AsarPatchEnabled)) {
             Write-Host "  skipping Claude.exe asar integrity sync due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[9/9] 写入用户语言配置"
+        Write-Step "[8/8] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
 
         Write-Step "重启 Claude Desktop"
