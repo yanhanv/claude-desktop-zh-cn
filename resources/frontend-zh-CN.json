@@ -12826,7 +12826,7 @@
   "s1sLOce95g": "运行扫描",
   "s1vuTgkYZ4": "仅此组织",
   "s2EMFAxgM5": "选择开始日期",
-  "s2XIgr4I+a": "Show details",
+  "s2XIgr4I+a": "显示详细信息",
   "s2bjvNhtGP": "创建并完成",
   "s2fZojW7g2": "Bank teller",
   "s3+O5jyM3P": "Dark code theme",
@@ -16037,5 +16037,16 @@
   "HWWSQ/N0ve": "分组方式",
   "M9mVtm5BuW": "已配置扫描计划的项目占比。计划扫描会随着代码变化保持覆盖率最新。",
   "egShYmLjr8": "开启深色模式时使用更暗、接近黑色的背景。",
-  "oV8aV6ja8X": "高对比度深色主题"
+  "oV8aV6ja8X": "高对比度深色主题",
+  "3yurtFS7JU": "下次执行",
+  "4aMay989nb": "搜索计划任务",
+  "7mROQVURCV": "创建你的第一个计划任务",
+  "A6TFwez4Y8": "每日简报",
+  "IpWmHJ3bpY": "每日简报",
+  "J1sUqyavtv": "选择任务",
+  "bGAabei9rU": "每周回顾",
+  "kslGQK9o7I": "每日简报、每周回顾。将任意任务设置为按计划运行。",
+  "uiBsm/q1Ed": "手动设置",
+  "w0NtlmPvm/": "搜索任务...",
+  "wFRNQOXDcp": "搜索计划任务…"
 }

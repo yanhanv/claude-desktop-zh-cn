@@ -1628,6 +1628,114 @@
     "“Nonessential”包括两项：**product-usage analytics**（会使用哪些功能、导航模式；不含提示词或补全）以及 Help → Generate Diagnostic Report 中的 **Send** 操作。开启此项会同时停止两者。\\n\\n两者的目标地址都是：`claude.ai`。已列在 Egress Requirements → Nonessential telemetry 下。"
   ],
   [
+    "Search scheduled tasks...",
+    "搜索计划任务..."
+  ],
+  [
+    "Search scheduled tasks…",
+    "搜索计划任务…"
+  ],
+  [
+    "Create your first scheduled task",
+    "创建你的第一个计划任务"
+  ],
+  [
+    "Daily brief",
+    "每日简报"
+  ],
+  [
+    "Weekly review",
+    "每周回顾"
+  ],
+  [
+    "Create with Claude",
+    "用 Claude 创建"
+  ],
+  [
+    "Set up manually",
+    "手动设置"
+  ],
+  [
+    "Next run",
+    "下次执行"
+  ],
+  [
+    "Search tasks...",
+    "搜索任务..."
+  ],
+  [
+    "Search tasks…",
+    "搜索任务…"
+  ],
+  [
+    "Select tasks",
+    "选择任务"
+  ],
+  [
+    "Motion",
+    "动态效果"
+  ],
+  [
+    "Reduced",
+    "减少"
+  ],
+  [
+    "Reduce animation in streaming responses and other interface elements. System follows your operating system's reduce-motion setting.",
+    "减少流式响应和其他界面元素中的动画。系统会遵循你的操作系统“减少动态效果”设置。"
+  ],
+  [
+    "Reduce animation in streaming responses and other interface elements. System follows your operating system’s reduce-motion setting.",
+    "减少流式响应和其他界面元素中的动画。系统会遵循你的操作系统“减少动态效果”设置。"
+  ],
+  [
+    "Transcript width",
+    "转录宽度"
+  ],
+  [
+    "Maximum width of the transcript and composer columns.",
+    "转录内容和输入框列的最大宽度。"
+  ],
+  [
+    "Narrow",
+    "窄"
+  ],
+  [
+    "Wide",
+    "宽"
+  ],
+  [
+    "Show details",
+    "显示详细信息"
+  ],
+  [
+    "Hide details",
+    "隐藏详细信息"
+  ],
+  [
+    "Read docs",
+    "阅读文档"
+  ],
+  [
+    "Model discovery",
+    "模型发现"
+  ],
+  [
+    "Auto-populate the model picker from http://127.0.0.1:15721/claude-desktop/v1/models at launch; when this key isn't set in the config, discovery is skipped if the model list below makes it unnecessary.",
+    "启动时从 http://127.0.0.1:15721/claude-desktop/v1/models 自动填充模型选择器；如果配置中未设置此键，且下面的模型列表已使发现变得不必要，则会跳过发现。"
+  ],
+  [
+    "Auto-populate the model picker from http://127.0.0.1:15721/claude-desktop/v1/models at launch; when this key isn’t set in the config, discovery is skipped if the model list below makes it unnecessary.",
+    "启动时从 http://127.0.0.1:15721/claude-desktop/v1/models 自动填充模型选择器；如果配置中未设置此键，且下面的模型列表已使发现变得不必要，则会跳过发现。"
+  ],
+  [
+    "Auto-populate the model picker from the provider's model-list endpoint at launch. For gateway and Anthropic providers, a config that doesn't set this key skips discovery automatically when the model list below already makes it unnecessary; the toggle here only sets it explicitly on or off. Turn off if the endpoint isn't reachable from your network, or to use a fixed list. When off, the model list below is required and must use full model IDs (aliases like sonnet/opus are resolved via discovery).",
+    "启动时从提供商的模型列表端点自动填充模型选择器。对于网关和 Anthropic 提供商，如果配置中未设置此键，且下面的模型列表已经使发现变得不必要，则会自动跳过发现；这里的开关只会显式设为开启或关闭。如果你的网络无法访问该端点，或需要使用固定列表，请关闭此项。关闭后，下面的模型列表为必填，且必须使用完整模型 ID（sonnet/opus 等别名会通过发现解析）。"
+  ],
+  [
+    "Auto-populate the model picker from the provider’s model-list endpoint at launch. For gateway and Anthropic providers, a config that doesn’t set this key skips discovery automatically when the model list below already makes it unnecessary; the toggle here only sets it explicitly on or off. Turn off if the endpoint isn’t reachable from your network, or to use a fixed list. When off, the model list below is required and must use full model IDs (aliases like sonnet/opus are resolved via discovery).",
+    "启动时从提供商的模型列表端点自动填充模型选择器。对于网关和 Anthropic 提供商，如果配置中未设置此键，且下面的模型列表已经使发现变得不必要，则会自动跳过发现；这里的开关只会显式设为开启或关闭。如果你的网络无法访问该端点，或需要使用固定列表，请关闭此项。关闭后，下面的模型列表为必填，且必须使用完整模型 ID（sonnet/opus 等别名会通过发现解析）。"
+  ],
+  [
     "Speed",
     "速度"
   ]

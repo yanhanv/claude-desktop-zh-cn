@@ -12822,7 +12822,7 @@
   "s1sLOce95g": "運行掃描",
   "s1vuTgkYZ4": "僅此組織",
   "s2EMFAxgM5": "選擇開始日期",
-  "s2XIgr4I+a": "Show details",
+  "s2XIgr4I+a": "顯示詳細資訊",
   "s2bjvNhtGP": "創建並完成",
   "s2fZojW7g2": "Bank teller",
   "s3+O5jyM3P": "Dark code theme",
@@ -16033,5 +16033,16 @@
   "HWWSQ/N0ve": "分組方式",
   "M9mVtm5BuW": "已設定掃描排程的專案占比。排程掃描會隨著程式碼變更保持涵蓋率最新。",
   "egShYmLjr8": "開啟深色模式時使用更暗、接近黑色的背景。",
-  "oV8aV6ja8X": "高對比度深色主題"
+  "oV8aV6ja8X": "高對比度深色主題",
+  "3yurtFS7JU": "下次執行",
+  "4aMay989nb": "搜尋排程任務",
+  "7mROQVURCV": "建立你的第一個排程任務",
+  "A6TFwez4Y8": "每日簡報",
+  "IpWmHJ3bpY": "每日簡報",
+  "J1sUqyavtv": "選取任務",
+  "bGAabei9rU": "每週回顧",
+  "kslGQK9o7I": "每日簡報、每週回顧。將任一任務設定為按排程執行。",
+  "uiBsm/q1Ed": "手動設定",
+  "w0NtlmPvm/": "搜尋任務...",
+  "wFRNQOXDcp": "搜尋排程任務…"
 }
