@@ -931,6 +931,78 @@ def patch_custom3p_model_validation(app: Path) -> None:
     print("Patched custom 3P model-name validation in app.asar")
 
 
+def get_model_picker_replacements(lang_code: str) -> dict[str, str]:
+    replacements_by_lang = {
+        "zh-CN": {
+            "Higher effort means more thorough responses, but takes longer and uses your limits faster.": "更高的思考深度会带来更全面的回答，但耗时更久，也会更快消耗你的额度。",
+            "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.": "可能会消耗大量 token，导致响应时间很长，也可能触及 token 限制。请仅在最困难的任务中谨慎使用。",
+            "Most capable for ambitious work": "适合高难度工作的最强模型",
+            "1M context window": "100 万上下文窗口",
+            'name:"Low"': 'name:"低"',
+            'name:"Medium"': 'name:"中"',
+            'name:"High"': 'name:"高"',
+            'name:"Extra"': 'name:"极高"',
+            'name:"Max"': 'name:"最高"',
+            'message:"Default"': 'message:"默认"',
+        },
+        "zh-TW": {
+            "Higher effort means more thorough responses, but takes longer and uses your limits faster.": "更高的思考深度會帶來更全面的回應，但耗時更久，也會更快消耗你的額度。",
+            "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.": "可能會消耗大量 token，導致回應時間很長，也可能觸及 token 限制。請僅在最困難的任務中謹慎使用。",
+            "Most capable for ambitious work": "適合高難度工作的最強模型",
+            "1M context window": "100 萬上下文視窗",
+            'name:"Low"': 'name:"低"',
+            'name:"Medium"': 'name:"中"',
+            'name:"High"': 'name:"高"',
+            'name:"Extra"': 'name:"極高"',
+            'name:"Max"': 'name:"最高"',
+            'message:"Default"': 'message:"預設"',
+        },
+        "zh-HK": {
+            "Higher effort means more thorough responses, but takes longer and uses your limits faster.": "更高的思考深度會帶來更全面的回應，但耗時更久，也會更快消耗你的額度。",
+            "May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.": "可能會消耗大量 token，導致回應時間很長，也可能觸及 token 限制。請僅在最困難的任務中謹慎使用。",
+            "Most capable for ambitious work": "適合高難度工作的最強模型",
+            "1M context window": "100 萬上下文視窗",
+            'name:"Low"': 'name:"低"',
+            'name:"Medium"': 'name:"中"',
+            'name:"High"': 'name:"高"',
+            'name:"Extra"': 'name:"極高"',
+            'name:"Max"': 'name:"最高"',
+            'message:"Default"': 'message:"預設"',
+        },
+    }
+    return replacements_by_lang[lang_code]
+
+
+def patch_model_picker_strings(app: Path, lang_code: str) -> None:
+    path = app / APP_ASAR_REL
+    require_file(path)
+
+    data = bytearray(path.read_bytes())
+    header_size, _header_string, header = read_asar_header(data, path)
+    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    content_offset = 8 + header_size + int(entry["offset"])
+    content_size = int(entry["size"])
+    content_end = content_offset + content_size
+    if content_offset < 0 or content_end > len(data):
+        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+
+    text = bytes(data[content_offset:content_end]).decode("utf-8")
+    patched = text
+    count = 0
+    for source, target in sorted(get_model_picker_replacements(lang_code).items(), key=lambda item: len(item[0]), reverse=True):
+        occurrences = patched.count(source)
+        if occurrences:
+            patched = patched.replace(source, target)
+            count += occurrences
+
+    if count == 0:
+        print("Hardcoded model picker strings already patched or not present")
+        return
+
+    replace_asar_file_content(app, ASAR_PATCH_TARGET, patched.encode("utf-8"))
+    print(f"Patched hardcoded model picker strings in app.asar: {count} replacements")
+
+
 def pad_utf8_replacement(source: str, target: str) -> str:
     source_len = len(source.encode("utf-8"))
     target_len = len(target.encode("utf-8"))
@@ -2331,6 +2403,7 @@ def main() -> int:
         print("Skipping 3P model validation patch (--skip-asar-patch)")
     else:
         patch_custom3p_model_validation(patched_app)
+        patch_model_picker_strings(patched_app, lang_code)
     merge_frontend_locale(patched_app, lang_code)
     install_desktop_locale(patched_app, lang_code)
     install_statsig_locale(patched_app, lang_code)

@@ -2238,6 +2238,102 @@ function Patch-HardcodedMainProcessMenuLabels {
     Write-Host "  patched hardcoded main-process menu labels: $($count + $intlCount) replacements, runtime patch: $runtimeCount" -ForegroundColor Green
 }
 
+function Get-ModelPickerReplacementPairs {
+    param([string]$Language)
+
+    switch ($Language) {
+        "zh-CN" {
+            return @(
+                @("Higher effort means more thorough responses, but takes longer and uses your limits faster.", "更高的思考深度会带来更全面的回答，但耗时更久，也会更快消耗你的额度。"),
+                @("May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.", "可能会消耗大量 token，导致响应时间很长，也可能触及 token 限制。请仅在最困难的任务中谨慎使用。"),
+                @("Most capable for ambitious work", "适合高难度工作的最强模型"),
+                @("1M context window", "100 万上下文窗口"),
+                @("name:`"Low`"", "name:`"低`""),
+                @("name:`"Medium`"", "name:`"中`""),
+                @("name:`"High`"", "name:`"高`""),
+                @("name:`"Extra`"", "name:`"极高`""),
+                @("name:`"Max`"", "name:`"最高`""),
+                @("message:`"Default`"", "message:`"默认`"")
+            )
+        }
+        "zh-TW" {
+            return @(
+                @("Higher effort means more thorough responses, but takes longer and uses your limits faster.", "更高的思考深度會帶來更全面的回應，但耗時更久，也會更快消耗你的額度。"),
+                @("May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.", "可能會消耗大量 token，導致回應時間很長，也可能觸及 token 限制。請僅在最困難的任務中謹慎使用。"),
+                @("Most capable for ambitious work", "適合高難度工作的最強模型"),
+                @("1M context window", "100 萬上下文視窗"),
+                @("name:`"Low`"", "name:`"低`""),
+                @("name:`"Medium`"", "name:`"中`""),
+                @("name:`"High`"", "name:`"高`""),
+                @("name:`"Extra`"", "name:`"極高`""),
+                @("name:`"Max`"", "name:`"最高`""),
+                @("message:`"Default`"", "message:`"預設`"")
+            )
+        }
+        "zh-HK" {
+            return @(
+                @("Higher effort means more thorough responses, but takes longer and uses your limits faster.", "更高的思考深度會帶來更全面的回應，但耗時更久，也會更快消耗你的額度。"),
+                @("May use excessive tokens resulting in long response times and may hit token limits. Use sparingly for the hardest tasks.", "可能會消耗大量 token，導致回應時間很長，也可能觸及 token 限制。請僅在最困難的任務中謹慎使用。"),
+                @("Most capable for ambitious work", "適合高難度工作的最強模型"),
+                @("1M context window", "100 萬上下文視窗"),
+                @("name:`"Low`"", "name:`"低`""),
+                @("name:`"Medium`"", "name:`"中`""),
+                @("name:`"High`"", "name:`"高`""),
+                @("name:`"Extra`"", "name:`"極高`""),
+                @("name:`"Max`"", "name:`"最高`""),
+                @("message:`"Default`"", "message:`"預設`"")
+            )
+        }
+        default { throw "Unsupported language for model picker replacements: $Language" }
+    }
+}
+
+function Patch-ModelPickerStrings {
+    param(
+        [string]$ResourcesPath,
+        [string]$Language
+    )
+
+    $asarPath = Join-Path $ResourcesPath "app.asar"
+    Require-File $asarPath
+
+    $data = [System.IO.File]::ReadAllBytes($asarPath)
+    $parsed = Read-AsarHeader $data $asarPath
+    $headerSize = $parsed["HeaderSize"]
+    $header = $parsed["Header"]
+    $entry = Get-AsarFileEntry $header $AsarPatchTarget
+    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
+    $contentSize = [int64]$entry.size
+    $contentEnd = $contentOffset + $contentSize
+    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
+        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
+    }
+
+    $contentBytes = [byte[]]::new([int]$contentSize)
+    [System.Array]::Copy($data, [int]$contentOffset, $contentBytes, 0, [int]$contentSize)
+    $text = [System.Text.Encoding]::UTF8.GetString($contentBytes)
+    $patched = $text
+    $count = 0
+    $pairs = @(Get-ModelPickerReplacementPairs $Language | Sort-Object -Property @{ Expression = { $_[0].Length }; Descending = $true })
+    foreach ($pair in $pairs) {
+        $source = $pair[0]
+        $target = $pair[1]
+        $occurrences = [System.Text.RegularExpressions.Regex]::Matches($patched, [System.Text.RegularExpressions.Regex]::Escape($source)).Count
+        if ($occurrences -gt 0) {
+            $patched = $patched.Replace($source, $target)
+            $count += $occurrences
+        }
+    }
+
+    if ($count -eq 0) {
+        Write-Host "  hardcoded model picker strings already patched or not present" -ForegroundColor Green
+        return
+    }
+
+    [void](Replace-AsarFileContent $ResourcesPath $AsarPatchTarget ([System.Text.Encoding]::UTF8.GetBytes($patched)))
+    Write-Host "  patched hardcoded model picker strings in app.asar: $count replacements" -ForegroundColor Green
+}
+
 function Set-ClaudeLocale {
     param([string]$Locale)
 
@@ -3098,6 +3194,7 @@ function Install-WindowsLanguagePack {
             Write-AsarCoworkSignatureWarning
             Patch-OnlineDomTranslation $resourcesPath $pack $LanguageCode
             Patch-HardcodedMainProcessMenuLabels $resourcesPath $LanguageCode
+            Patch-ModelPickerStrings $resourcesPath $LanguageCode
         } else {
             Write-Host "  skipping online claude.ai DOM translation patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
             Write-Host "  skipping main-process menu label patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
