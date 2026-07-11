@@ -387,6 +387,40 @@ def iter_asar_file_entries(header: dict[str, Any]) -> list[dict[str, Any]]:
     return entries
 
 
+def iter_asar_files(header: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    entries: list[tuple[str, dict[str, Any]]] = []
+
+    def walk(node: dict[str, Any], prefix: str = "") -> None:
+        files = node.get("files")
+        if not isinstance(files, dict):
+            return
+        for name, child in files.items():
+            if not isinstance(child, dict):
+                continue
+            path = f"{prefix}/{name}" if prefix else name
+            if "files" in child:
+                walk(child, path)
+            elif "offset" in child and "size" in child:
+                entries.append((path, child))
+
+    walk(header)
+    return entries
+
+
+def read_asar_entry_content(
+    data: bytes | bytearray,
+    header_size: int,
+    entry: dict[str, Any],
+    file_path: str,
+) -> bytes:
+    content_offset = 8 + header_size + int(entry["offset"])
+    content_size = int(entry["size"])
+    content_end = content_offset + content_size
+    if content_offset < 0 or content_end > len(data):
+        raise SystemExit(f"Unsupported app.asar file bounds for {file_path}.")
+    return bytes(data[content_offset:content_end])
+
+
 def set_asar_offset(entry: dict[str, Any], offset: int) -> None:
     entry["offset"] = str(offset) if isinstance(entry.get("offset"), str) else offset
 
@@ -665,14 +699,15 @@ def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
 def strip_online_locale_lock_patch(text: str) -> tuple[str, bool]:
     pattern = re.compile(
         r'requestLocaleChange\((?P<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)'
-        r'\{V6r\("(?P<lang>[^"]+)"\)\}/\*'
+        r'\{(?P<setter>[A-Za-z_$][A-Za-z0-9_$]*)\("(?P<lang>[^"]+)"\)\}/\*'
         + re.escape(ONLINE_LOCALE_LOCK_MARKER)
         + r"\*/"
     )
 
     def restore(match: re.Match[str]) -> str:
         arg = match.group("arg")
-        return f"requestLocaleChange({arg}){{V6r({arg})}}"
+        setter = match.group("setter")
+        return f"requestLocaleChange({arg}){{{setter}({arg})}}"
 
     patched, count = pattern.subn(restore, text)
     return patched, count > 0
@@ -681,9 +716,15 @@ def strip_online_locale_lock_patch(text: str) -> tuple[str, bool]:
 def patch_online_locale_lock(text: str, lang_code: str) -> tuple[str, bool]:
     pattern = re.compile(
         r'requestLocaleChange\((?P<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)'
-        r'\{V6r\((?P=arg)\)\}'
+        r'\{(?P<setter>[A-Za-z_$][A-Za-z0-9_$]*)\((?P=arg)\)\}'
     )
-    matches = list(pattern.finditer(text))
+    matches = [
+        match
+        for match in pattern.finditer(text)
+        if ".setImplementation({" in text[max(0, match.start() - 512) : match.start()]
+        and "getInitialLocale" in text[max(0, match.start() - 512) : match.start()]
+        and "dispatchLocaleChanged" in text[match.end() : match.end() + 512]
+    ]
     if len(matches) > 1:
         raise SystemExit(
             "Could not patch DesktopIntl locale persistence: multiple requestLocaleChange handlers found."
@@ -693,8 +734,9 @@ def patch_online_locale_lock(text: str, lang_code: str) -> tuple[str, bool]:
 
     match = matches[0]
     arg = match.group("arg")
+    setter = match.group("setter")
     replacement = (
-        f'requestLocaleChange({arg}){{V6r("{lang_code}")}}/*{ONLINE_LOCALE_LOCK_MARKER}*/'
+        f'requestLocaleChange({arg}){{{setter}("{lang_code}")}}/*{ONLINE_LOCALE_LOCK_MARKER}*/'
     )
     patched = text[: match.start()] + replacement + text[match.end() :]
     return patched, True
@@ -727,18 +769,65 @@ def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     return pattern.search(text)
 
 
+def find_main_process_asar_target(
+    data: bytes | bytearray,
+    header_size: int,
+    header: dict[str, Any],
+) -> str:
+    marker_matches: list[str] = []
+    handler_matches: list[str] = []
+
+    for file_path, entry in iter_asar_files(header):
+        if not (file_path.startswith(".vite/build/") and file_path.endswith(".js")):
+            continue
+        content = read_asar_entry_content(data, header_size, entry, file_path)
+        if ONLINE_LOCALE_MAIN_MARKER.encode("utf-8") in content:
+            marker_matches.append(file_path)
+            continue
+        if b"main_view_dom_ready" not in content:
+            continue
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        handler = find_main_view_dom_ready_handler(text)
+        if handler is not None and "main_view_dom_ready" in handler.group("body"):
+            handler_matches.append(file_path)
+
+    matches = marker_matches or handler_matches
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise SystemExit(
+            "Could not select main-process app.asar bundle: multiple candidates found: "
+            + ", ".join(matches)
+        )
+
+    # Compatibility fallback for older Claude builds. The caller will still
+    # require the expected anchor, so this cannot silently report success.
+    try:
+        get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    except SystemExit:
+        pass
+    else:
+        return ASAR_PATCH_TARGET
+    raise SystemExit("Could not locate Claude's main-process app.asar bundle.")
+
+
 def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
     path = app / APP_ASAR_REL
     require_file(path)
 
     data = path.read_bytes()
     header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    print(f"Selected main-process ASAR bundle: {asar_target}")
+    entry = get_asar_file_entry(header, asar_target)
     content_offset = 8 + header_size + int(entry["offset"])
     content_size = int(entry["size"])
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
 
     text = data[content_offset:content_end].decode("utf-8")
     text, had_existing = strip_online_locale_main_process_patch(text)
@@ -746,11 +835,10 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
     mapping = build_online_translation_map(app, lang_code)
     handler = find_main_view_dom_ready_handler(text)
     if handler is None:
-        print(
-            "Warning: could not find main view dom-ready anchor for online locale patch; "
-            "skipping online claude.ai DOM translation."
+        raise SystemExit(
+            "Could not find main view dom-ready anchor for online locale patch. "
+            "Claude's bundle format may have changed."
         )
-        return
 
     injection = build_online_locale_main_process_script(
         lang_code,
@@ -761,16 +849,16 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
     patched_text = text[: handler.start()] + injection + text[handler.end() :]
     patched_text, locale_lock_patched = patch_online_locale_lock(patched_text, lang_code)
     if not locale_lock_patched:
-        print(
-            "Warning: could not patch DesktopIntl locale persistence; "
-            "Claude may still write locale back to English."
+        raise SystemExit(
+            "Could not patch DesktopIntl locale persistence. "
+            "Refusing to install a partial language patch."
         )
 
     if patched_text == data[content_offset:content_end].decode("utf-8"):
         print("Online claude.ai locale main-process patch already applied")
         return
 
-    replace_asar_file_content(app, ASAR_PATCH_TARGET, patched_text.encode("utf-8"))
+    replace_asar_file_content(app, asar_target, patched_text.encode("utf-8"))
     action = "Refreshed" if (had_existing or had_existing_lock) else "Patched"
     print(
         f"{action} online claude.ai locale main-process hook: {len(mapping)} DOM strings; "
@@ -877,12 +965,13 @@ def patch_custom3p_model_validation(app: Path) -> None:
 
     data = bytearray(path.read_bytes())
     header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    entry = get_asar_file_entry(header, asar_target)
     content_offset = 8 + header_size + int(entry["offset"])
     content_size = int(entry["size"])
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
 
     content = bytes(data[content_offset:content_end])
     match = find_custom3p_validation_toggle(content, old_expr)
@@ -979,12 +1068,13 @@ def patch_model_picker_strings(app: Path, lang_code: str) -> None:
 
     data = bytearray(path.read_bytes())
     header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    entry = get_asar_file_entry(header, asar_target)
     content_offset = 8 + header_size + int(entry["offset"])
     content_size = int(entry["size"])
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
 
     text = bytes(data[content_offset:content_end]).decode("utf-8")
     patched = text
@@ -999,7 +1089,7 @@ def patch_model_picker_strings(app: Path, lang_code: str) -> None:
         print("Hardcoded model picker strings already patched or not present")
         return
 
-    replace_asar_file_content(app, ASAR_PATCH_TARGET, patched.encode("utf-8"))
+    replace_asar_file_content(app, asar_target, patched.encode("utf-8"))
     print(f"Patched hardcoded model picker strings in app.asar: {count} replacements")
 
 
@@ -1510,12 +1600,13 @@ def patch_length_preserving_main_process_menu_labels(app: Path, lang_code: str) 
 
     data = bytearray(path.read_bytes())
     header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    entry = get_asar_file_entry(header, asar_target)
     content_offset = 8 + header_size + int(entry["offset"])
     content_size = int(entry["size"])
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
 
     content = bytes(data[content_offset:content_end])
     text = content.decode("utf-8")
@@ -1554,12 +1645,13 @@ def patch_hardcoded_main_process_menu_labels(app: Path, lang_code: str) -> None:
 
     data = bytearray(path.read_bytes())
     header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    entry = get_asar_file_entry(header, asar_target)
     content_offset = 8 + header_size + int(entry["offset"])
     content_size = int(entry["size"])
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
 
     content = bytes(data[content_offset:content_end])
     text = content.decode("utf-8")
@@ -1627,7 +1719,7 @@ def patch_hardcoded_main_process_menu_labels(app: Path, lang_code: str) -> None:
         raise SystemExit("Could not patch main-process menu labels; Claude's menu bundle format may have changed.")
 
     patched_content = patched.encode("utf-8")
-    replace_asar_file_content(app, ASAR_PATCH_TARGET, patched_content)
+    replace_asar_file_content(app, asar_target, patched_content)
     if repair_count:
         print(f"Repaired unsafe short main-process menu replacements: {repair_count} occurrences")
     print(f"Patched hardcoded main-process menu labels: {count + intl_count} replacements, runtime patch: {runtime_count}")
@@ -1785,6 +1877,7 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
             print(f"Existing config was not valid JSON; backed up to {backup}")
     data["locale"] = lang_code
     save_json(config, data)
+    os.chmod(config, 0o600)
 
     sudo_uid = os.environ.get("SUDO_UID")
     sudo_gid = os.environ.get("SUDO_GID")
@@ -2241,7 +2334,62 @@ def restore_oldest_backup(app: Path, dry_run: bool) -> Path:
     return backup
 
 
-def verify(app: Path, lang_code: str) -> None:
+def verify_electron_asar_integrity(app: Path) -> None:
+    asar_path = app / APP_ASAR_REL
+    data = asar_path.read_bytes()
+    _header_size, header_string, _header = read_asar_header(data, asar_path)
+    expected = hashlib.sha256(header_string.encode("utf-8")).hexdigest()
+
+    info_plist = app / "Contents/Info.plist"
+    with info_plist.open("rb") as f:
+        info = plistlib.load(f)
+    actual = (
+        info.get("ElectronAsarIntegrity", {})
+        .get("Resources/app.asar", {})
+        .get("hash")
+    )
+    if actual != expected:
+        raise SystemExit(
+            "Electron app.asar integrity mismatch: "
+            f"Info.plist has {actual!r}, expected {expected}."
+        )
+    print("Verified Electron app.asar integrity")
+
+
+def verify_online_locale_patch(app: Path, lang_code: str) -> None:
+    asar_path = app / APP_ASAR_REL
+    data = asar_path.read_bytes()
+    header_size, _header_string, header = read_asar_header(data, asar_path)
+    asar_target = find_main_process_asar_target(data, header_size, header)
+    entry = get_asar_file_entry(header, asar_target)
+    text = read_asar_entry_content(data, header_size, entry, asar_target).decode("utf-8")
+
+    missing = [
+        marker
+        for marker in [ONLINE_LOCALE_MAIN_MARKER, ONLINE_LOCALE_LOCK_MARKER]
+        if marker not in text
+    ]
+    if missing:
+        raise SystemExit(
+            "Online locale patch verification failed; missing markers in "
+            f"{asar_target}: {', '.join(missing)}"
+        )
+    lock_pattern = re.compile(
+        r'requestLocaleChange\([A-Za-z_$][A-Za-z0-9_$]*\)'
+        r'\{[A-Za-z_$][A-Za-z0-9_$]*\("'
+        + re.escape(lang_code)
+        + r'"\)\}/\*'
+        + re.escape(ONLINE_LOCALE_LOCK_MARKER)
+        + r"\*/"
+    )
+    if lock_pattern.search(text) is None:
+        raise SystemExit(
+            f"Online locale lock verification failed for {lang_code} in {asar_target}."
+        )
+    print(f"Verified online locale patch in {asar_target}: {lang_code}")
+
+
+def verify(app: Path, lang_code: str, *, expect_online_patch: bool = True) -> None:
     start = time.perf_counter()
     frontend = app / FRONTEND_I18N_REL / f"{lang_code}.json"
     data = load_json(frontend)
@@ -2249,18 +2397,23 @@ def verify(app: Path, lang_code: str) -> None:
     chinese = sum(1 for v in values if re.search(r"[\u4e00-\u9fff]", v))
     print(f"Verified frontend {lang_code} JSON: {chinese}/{len(values)} strings contain Chinese")
 
+    verify_electron_asar_integrity(app)
+    if expect_online_patch:
+        verify_online_locale_patch(app, lang_code)
+
     verify_result = run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)], check=False)
     if verify_result.returncode == 0:
         print("Verified app signature")
     else:
         print("App signature verification failed:")
         print(verify_result.stdout, end="")
+        raise SystemExit("Refusing to install an app with an invalid signature.")
 
     entitlements = read_entitlements(app)
     if "com.apple.security.virtualization" in entitlements:
         print("Verified virtualization entitlement")
     else:
-        print("Warning: virtualization entitlement is missing")
+        raise SystemExit("Virtualization entitlement is missing after re-signing.")
 
     result = run(["codesign", "-dv", str(app)], check=False).stdout
     for line in result.splitlines():
@@ -2413,7 +2566,7 @@ def main() -> int:
         print(f"[dry-run] Would set Claude config locale under: {args.user_home}")
     else:
         set_user_locale(args.user_home, lang_code)
-    verify(patched_app, lang_code)
+    verify(patched_app, lang_code, expect_online_patch=not args.skip_asar_patch)
 
     backup = backup_and_replace(args.app, patched_app, args.dry_run)
     if not args.dry_run:
