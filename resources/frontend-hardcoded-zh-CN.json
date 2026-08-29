@@ -2378,5 +2378,93 @@
   [
     "Recent one-off activity that doesn't fit elsewhere",
     "不适合归入其他类别的近期一次性活动"
+  ],
+  [
+    "Auto-fix pull requests",
+    "自动修复拉取请求"
+  ],
+  [
+    "Notifications are turned off for Claude. Enable them in System Settings to get alerts when Claude finishes a task.",
+    "Claude 的通知已关闭。在系统设置中开启通知后，Claude 完成任务时会向你发送提醒。"
+  ],
+  [
+    "Want an API key?",
+    "需要 API 密钥？"
+  ],
+  [
+    "Create keys, check usage, and more on Claude Platform. This requires another account, and API usage is billed separately.",
+    "在 Claude Platform 上创建密钥、查看用量等。这需要另一个账号，API 用量单独计费。"
+  ],
+  [
+    "Go to Claude Platform",
+    "前往 Claude Platform"
+  ],
+  [
+    "Edit config",
+    "编辑配置"
+  ],
+  [
+    "Automatically start Claude when you log in to your computer.",
+    "登录计算机时自动启动 Claude。"
+  ],
+  [
+    "Message Claude from anywhere on your desktop.",
+    "从桌面上的任何位置向 Claude 发送消息。"
+  ],
+  [
+    "Speak to Claude from anywhere on your desktop.",
+    "从桌面上的任何位置与 Claude 交谈。"
+  ],
+  [
+    "Show Claude in the menu bar.",
+    "在菜单栏中显示 Claude。"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session\\u2019s worktree and deletes its branch once the pull request is merged. Work that isn\\u2019t pushed is kept.",
+    "关联的拉取请求合并或关闭后，自动归档桌面会话。归档还会移除该会话的工作树，并在拉取请求合并后删除其分支。未推送的工作会被保留。"
+  ],
+  [
+    "Search skills and plugins",
+    "搜索技能和插件"
+  ],
+  [
+    "Add your first skills",
+    "添加你的第一批技能"
+  ],
+  [
+    "Skills teach Claude how you work. Add them from Discover, or create your own.",
+    "技能教会 Claude 你的工作方式。可从“发现”中添加，也可自行创建。"
+  ],
+  [
+    "Browse Discover",
+    "浏览“发现”"
+  ],
+  [
+    "Add your first plugins",
+    "添加你的第一批插件"
+  ],
+  [
+    "Give Claude role-level expertise with plugins. Add them from Discover.",
+    "用插件为 Claude 赋予角色级专长。可从“发现”中添加。"
+  ],
+  [
+    "Give Claude role-level expertise with plugins. Add them from Discover, or create your own.",
+    "用插件为 Claude 赋予角色级专长。可从“发现”中添加，也可自行创建。"
+  ],
+  [
+    "Your plugins",
+    "你的插件"
+  ],
+  [
+    "Discover",
+    "发现"
+  ],
+  [
+    "Sort",
+    "排序"
+  ],
+  [
+    "From Anthropic",
+    "来自 Anthropic"
   ]
 ]

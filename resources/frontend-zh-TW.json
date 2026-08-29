@@ -11948,5 +11948,21 @@
   "y21MM8aMFb": "第 {n} 項：{message}",
   "y486fMBVj/": "允許使用者建立技能",
   "y8qYHNqpeo": "層級別名",
-  "zDJwTxbW3p": "提供商未響應。請檢查你的網路或 VPN。如果問題仍然存在，你的 IT 團隊可能需要將該主機加入允許列表。"
+  "zDJwTxbW3p": "提供商未響應。請檢查你的網路或 VPN。如果問題仍然存在，你的 IT 團隊可能需要將該主機加入允許列表。",
+  "Kar0Yjz/JF": "Claude 的通知已關閉。在系統設定中開啟通知後，Claude 完成任務時會向你發送提醒。",
+  "eM0Qa4coD/": "自動修復拉取請求",
+  "JuT1yhTfY2": "關聯的拉取請求合併或關閉後，自動歸檔桌面工作階段。歸檔還會移除該工作階段的工作樹，並在拉取請求合併後刪除其分支。未推送的工作會被保留。",
+  "vJozdi3Mka": "需要 API 密鑰？",
+  "b3wAwXc0RY": "在 Claude Platform 上建立密鑰、查看用量等。這需要另一個帳號，API 用量單獨計費。",
+  "lBnPWjUArB": "前往 Claude Platform",
+  "JgfBO3wXf3": "搜尋技能和外掛",
+  "cP0Y5KKITA": "新增你的第一批技能",
+  "iNkqgKucb+": "技能教 Claude 了解你的工作方式。可從「探索」中新增，也可自行建立。",
+  "brpbtMyQKA": "瀏覽「探索」",
+  "+1GwJUQpT/": "新增你的第一批外掛",
+  "QvAf5Oc7IE": "用外掛為 Claude 賦予角色級專長。可從「探索」中新增。",
+  "XhQzMztrwF": "用外掛為 Claude 賦予角色級專長。可從「探索」中新增，也可自行建立。",
+  "1onhc0sgyt": "你的外掛",
+  "cE4HfwyEyr": "探索",
+  "25oM9QYcXw": "排序"
 }

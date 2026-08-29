@@ -12019,5 +12019,21 @@
   "jeJllqD20B": "在新标签页中打开",
   "pnKBBmLVcR": "新建隐身聊天",
   "qMZ7KWeCJu": "已更新计划任务：{taskName}",
-  "sn3sTBoTqJ": "要归档此线程吗？"
+  "sn3sTBoTqJ": "要归档此线程吗？",
+  "Kar0Yjz/JF": "Claude 的通知已关闭。在系统设置中开启通知后，Claude 完成任务时会向你发送提醒。",
+  "eM0Qa4coD/": "自动修复拉取请求",
+  "JuT1yhTfY2": "关联的拉取请求合并或关闭后，自动归档桌面会话。归档还会移除该会话的工作树，并在拉取请求合并后删除其分支。未推送的工作会被保留。",
+  "vJozdi3Mka": "需要 API 密钥？",
+  "b3wAwXc0RY": "在 Claude Platform 上创建密钥、查看用量等。这需要另一个账号，API 用量单独计费。",
+  "lBnPWjUArB": "前往 Claude Platform",
+  "JgfBO3wXf3": "搜索技能和插件",
+  "cP0Y5KKITA": "添加你的第一批技能",
+  "iNkqgKucb+": "技能教会 Claude 你的工作方式。可从“发现”中添加，也可自行创建。",
+  "brpbtMyQKA": "浏览“发现”",
+  "+1GwJUQpT/": "添加你的第一批插件",
+  "QvAf5Oc7IE": "用插件为 Claude 赋予角色级专长。可从“发现”中添加。",
+  "XhQzMztrwF": "用插件为 Claude 赋予角色级专长。可从“发现”中添加，也可自行创建。",
+  "1onhc0sgyt": "你的插件",
+  "cE4HfwyEyr": "发现",
+  "25oM9QYcXw": "排序"
 }

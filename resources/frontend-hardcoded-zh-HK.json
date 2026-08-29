@@ -1722,5 +1722,97 @@
   [
     "Set time limits for Claude. You can dismiss or adjust anytime.",
     "設定 Claude 的使用時限。你可以隨時略過或調整。"
+  ],
+  [
+    "Auto-fix pull requests",
+    "自動修復拉取請求"
+  ],
+  [
+    "Notifications are turned off for Claude. Enable them in System Settings to get alerts when Claude finishes a task.",
+    "Claude 的通知已關閉。在系統設定中開啟通知後，Claude 完成任務時會向你發送提醒。"
+  ],
+  [
+    "Want an API key?",
+    "需要 API 密鑰？"
+  ],
+  [
+    "Create keys, check usage, and more on Claude Platform. This requires another account, and API usage is billed separately.",
+    "在 Claude Platform 上創建密鑰、查看用量等。這需要另一個帳號，API 用量單獨計費。"
+  ],
+  [
+    "Go to Claude Platform",
+    "前往 Claude Platform"
+  ],
+  [
+    "Edit config",
+    "編輯配置"
+  ],
+  [
+    "Automatically start Claude when you log in to your computer.",
+    "登入計算機時自動啟動 Claude。"
+  ],
+  [
+    "Message Claude from anywhere on your desktop.",
+    "從桌面上的任何位置向 Claude 發送消息。"
+  ],
+  [
+    "Speak to Claude from anywhere on your desktop.",
+    "從桌面上的任何位置與 Claude 交談。"
+  ],
+  [
+    "Show Claude in the menu bar.",
+    "在菜單欄中顯示 Claude。"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session's worktree and deletes its branch once the pull request is merged. Work that isn't pushed is kept.",
+    "關聯的拉取請求合併或關閉後，自動歸檔桌面工作階段。歸檔還會移除該工作階段的工作樹，並在拉取請求合併後刪除其分支。未推送的工作會被保留。"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session\\u2019s worktree and deletes its branch once the pull request is merged. Work that isn\\u2019t pushed is kept.",
+    "關聯的拉取請求合併或關閉後，自動歸檔桌面工作階段。歸檔還會移除該工作階段的工作樹，並在拉取請求合併後刪除其分支。未推送的工作會被保留。"
+  ],
+  [
+    "Search skills and plugins",
+    "搜尋技能和插件"
+  ],
+  [
+    "Add your first skills",
+    "新增你的第一批技能"
+  ],
+  [
+    "Skills teach Claude how you work. Add them from Discover, or create your own.",
+    "技能教 Claude 了解你的工作方式。可從「探索」中添加，也可自行建立。"
+  ],
+  [
+    "Browse Discover",
+    "瀏覽「探索」"
+  ],
+  [
+    "Add your first plugins",
+    "新增你的第一批插件"
+  ],
+  [
+    "Give Claude role-level expertise with plugins. Add them from Discover.",
+    "用插件為 Claude 賦予角色級專長。可從「探索」中添加。"
+  ],
+  [
+    "Give Claude role-level expertise with plugins. Add them from Discover, or create your own.",
+    "用插件為 Claude 賦予角色級專長。可從「探索」中添加，也可自行建立。"
+  ],
+  [
+    "Your plugins",
+    "你的插件"
+  ],
+  [
+    "Discover",
+    "探索"
+  ],
+  [
+    "Sort",
+    "排序"
+  ],
+  [
+    "From Anthropic",
+    "來自 Anthropic"
   ]
 ]

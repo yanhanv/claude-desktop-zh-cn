@@ -590,6 +590,18 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         updated_week_text = "$1 周前更新"
         updated_month_text = "$1 个月前更新"
         updated_year_text = "$1 年前更新"
+        ago_second_text = "$1 秒前"
+        ago_minute_text = "$1 分钟前"
+        ago_hour_text = "$1 小时前"
+        ago_day_text = "$1 天前"
+        ago_week_text = "$1 周前"
+        added_minute_text = "$1 分钟前添加"
+        added_hour_text = "$1 小时前添加"
+        added_day_text = "$1 天前添加"
+        added_week_text = "$1 周前添加"
+        added_month_text = "$1 个月前添加"
+        added_year_text = "$1 年前添加"
+        added_on_suffix = "添加"
     else:
         selected_text = "已選擇 $1 項"
         delete_selected_text = "刪除 $1 個所選項目"
@@ -603,6 +615,18 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         updated_week_text = "$1 週前更新"
         updated_month_text = "$1 個月前更新"
         updated_year_text = "$1 年前更新"
+        ago_second_text = "$1 秒前"
+        ago_minute_text = "$1 分鐘前"
+        ago_hour_text = "$1 小時前"
+        ago_day_text = "$1 天前"
+        ago_week_text = "$1 週前"
+        added_minute_text = "$1 分鐘前新增"
+        added_hour_text = "$1 小時前新增"
+        added_day_text = "$1 天前新增"
+        added_week_text = "$1 週前新增"
+        added_month_text = "$1 個月前新增"
+        added_year_text = "$1 年前新增"
+        added_on_suffix = "新增"
     dynamic_rules = "".join((
         f'[/^(\\d+) selected$/,"{selected_text}"],'
         f'[/^Delete (\\d+) selected item$/,"{delete_selected_text}"],'
@@ -624,6 +648,23 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         '[/^Updated Jul (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 7月$1日"],[/^Updated Aug (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 8月$1日"],'
         '[/^Updated Sep (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 9月$1日"],[/^Updated Oct (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 10月$1日"],'
         '[/^Updated Nov (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 11月$1日"],[/^Updated Dec (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 12月$1日"],'
+        f'[/^(\\d+)s ago$/,"{ago_second_text}"],'
+        f'[/^(\\d+)m ago$/,"{ago_minute_text}"],'
+        f'[/^(\\d+)h ago$/,"{ago_hour_text}"],'
+        f'[/^(\\d+)d ago$/,"{ago_day_text}"],'
+        f'[/^(\\d+)w ago$/,"{ago_week_text}"],'
+        f'[/^added (\\d+) minutes? ago$/,"{added_minute_text}"],'
+        f'[/^added (\\d+) hours? ago$/,"{added_hour_text}"],'
+        f'[/^added (\\d+) days? ago$/,"{added_day_text}"],'
+        f'[/^added (\\d+) weeks? ago$/,"{added_week_text}"],'
+        f'[/^added (\\d+) months? ago$/,"{added_month_text}"],'
+        f'[/^added (\\d+) years? ago$/,"{added_year_text}"],'
+        f'[/^added Jan (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"1月$1日{added_on_suffix}"],[/^added Feb (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"2月$1日{added_on_suffix}"],'
+        f'[/^added Mar (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"3月$1日{added_on_suffix}"],[/^added Apr (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"4月$1日{added_on_suffix}"],'
+        f'[/^added May (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"5月$1日{added_on_suffix}"],[/^added Jun (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"6月$1日{added_on_suffix}"],'
+        f'[/^added Jul (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"7月$1日{added_on_suffix}"],[/^added Aug (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"8月$1日{added_on_suffix}"],'
+        f'[/^added Sep (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"9月$1日{added_on_suffix}"],[/^added Oct (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"10月$1日{added_on_suffix}"],'
+        f'[/^added Nov (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"11月$1日{added_on_suffix}"],[/^added Dec (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"12月$1日{added_on_suffix}"],'
         '[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],'
         '[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]'
     ))
@@ -1909,12 +1950,25 @@ def install_statsig_locale(app: Path, lang_code: str) -> None:
     print(f"Installed statsig {lang_code} resource")
 
 
+def app_bundle_identifier(app: Path) -> str | None:
+    """Return CFBundleIdentifier of *app*, or None when it cannot be read."""
+    info_plist = app / "Contents/Info.plist"
+    try:
+        with info_plist.open("rb") as f:
+            plist = plistlib.load(f)
+        value = plist.get("CFBundleIdentifier")
+        return value if isinstance(value, str) and value else None
+    except Exception:
+        return None
+
+
 def sign_path(
     path: Path,
     entitlements_dir: Path,
     *,
     hardened_runtime: bool = True,
     force_get_task_allow: bool = False,
+    designated_requirement: str | None = None,
 ) -> None:
     entitlements = load_entitlements(path)
     if entitlements is None:
@@ -1945,6 +1999,8 @@ def sign_path(
         entitlement_path = entitlements_dir / f"{abs(hash(path.as_posix()))}.plist"
         entitlement_path.write_bytes(plistlib.dumps(entitlements, fmt=plistlib.FMT_XML))
         cmd.extend(["--entitlements", str(entitlement_path)])
+    if designated_requirement:
+        cmd.extend(["-r", f"=designated => {designated_requirement}"])
     cmd.append(str(path))
 
     result = run(cmd, check=False)
@@ -1996,7 +2052,18 @@ def resign_app(app: Path) -> None:
         sign_path(path, entitlements_dir)
         if index % 10 == 0 or index == len(sorted_bundle_targets):
             log(f"  signed {index}/{len(sorted_bundle_targets)} nested bundles ({elapsed_since(start)})")
-    sign_path(app, entitlements_dir)
+    # ShipIt validates downloaded updates against the installed app's designated
+    # requirement. The ad-hoc default DR is a cdhash pin that no official update
+    # can satisfy, which is why patched apps silently never install updates.
+    # An identifier-only DR is satisfied by any official Claude release, so
+    # auto-update keeps working (the update replaces the patch with the
+    # official app; re-run the patch afterwards).
+    bundle_id = app_bundle_identifier(app)
+    if bundle_id:
+        sign_path(app, entitlements_dir, designated_requirement=f'identifier "{bundle_id}"')
+    else:
+        log("  warning: CFBundleIdentifier not found; keeping default ad-hoc DR (auto-update will not install)")
+        sign_path(app, entitlements_dir)
     log(f"Re-signed patched app in {elapsed_since(start)}")
 
 
@@ -2149,11 +2216,14 @@ def resign_app_for_frida(app: Path) -> None:
         )
         if index % 10 == 0 or index == len(sorted_bundle_targets):
             log(f"  signed {index}/{len(sorted_bundle_targets)} nested bundles ({elapsed_since(start)})")
+    frida_bundle_id = app_bundle_identifier(app)
+    frida_dr = f'identifier "{frida_bundle_id}"' if frida_bundle_id else None
     sign_path(
         app,
         entitlements_dir,
         hardened_runtime=False,
         force_get_task_allow=True,
+        designated_requirement=frida_dr,
     )
     clear_quarantine(app)
     log(f"Frida debug re-sign finished in {elapsed_since(start)}")

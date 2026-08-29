@@ -1476,6 +1476,18 @@ function Get-OnlineDomTranslationScript {
         $updatedWeekText = "`$1 周前更新"
         $updatedMonthText = "`$1 个月前更新"
         $updatedYearText = "`$1 年前更新"
+        $agoSecondText = "`$1 秒前"
+        $agoMinuteText = "`$1 分钟前"
+        $agoHourText = "`$1 小时前"
+        $agoDayText = "`$1 天前"
+        $agoWeekText = "`$1 周前"
+        $addedMinuteText = "`$1 分钟前添加"
+        $addedHourText = "`$1 小时前添加"
+        $addedDayText = "`$1 天前添加"
+        $addedWeekText = "`$1 周前添加"
+        $addedMonthText = "`$1 个月前添加"
+        $addedYearText = "`$1 年前添加"
+        $addedOnSuffix = "添加"
     } else {
         $selectedText = "已選擇 `$1 項"
         $deleteSelectedText = "刪除 `$1 個所選項目"
@@ -1485,6 +1497,18 @@ function Get-OnlineDomTranslationScript {
         $updatedWeekText = "`$1 週前更新"
         $updatedMonthText = "`$1 個月前更新"
         $updatedYearText = "`$1 年前更新"
+        $agoSecondText = "`$1 秒前"
+        $agoMinuteText = "`$1 分鐘前"
+        $agoHourText = "`$1 小時前"
+        $agoDayText = "`$1 天前"
+        $agoWeekText = "`$1 週前"
+        $addedMinuteText = "`$1 分鐘前新增"
+        $addedHourText = "`$1 小時前新增"
+        $addedDayText = "`$1 天前新增"
+        $addedWeekText = "`$1 週前新增"
+        $addedMonthText = "`$1 個月前新增"
+        $addedYearText = "`$1 年前新增"
+        $addedOnSuffix = "新增"
     }
     $selectedTextJson = $selectedText | ConvertTo-Json -Compress
     $deleteSelectedTextJson = $deleteSelectedText | ConvertTo-Json -Compress
@@ -1494,9 +1518,29 @@ function Get-OnlineDomTranslationScript {
     $updatedWeekTextJson = $updatedWeekText | ConvertTo-Json -Compress
     $updatedMonthTextJson = $updatedMonthText | ConvertTo-Json -Compress
     $updatedYearTextJson = $updatedYearText | ConvertTo-Json -Compress
+    $agoSecondTextJson = $agoSecondText | ConvertTo-Json -Compress
+    $agoMinuteTextJson = $agoMinuteText | ConvertTo-Json -Compress
+    $agoHourTextJson = $agoHourText | ConvertTo-Json -Compress
+    $agoDayTextJson = $agoDayText | ConvertTo-Json -Compress
+    $agoWeekTextJson = $agoWeekText | ConvertTo-Json -Compress
+    $addedMinuteTextJson = $addedMinuteText | ConvertTo-Json -Compress
+    $addedHourTextJson = $addedHourText | ConvertTo-Json -Compress
+    $addedDayTextJson = $addedDayText | ConvertTo-Json -Compress
+    $addedWeekTextJson = $addedWeekText | ConvertTo-Json -Compress
+    $addedMonthTextJson = $addedMonthText | ConvertTo-Json -Compress
+    $addedYearTextJson = $addedYearText | ConvertTo-Json -Compress
+    $addedMonthNames = @("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+    $addedMonthRuleParts = for ($i = 0; $i -lt 12; $i++) {
+        $addedOnLabel = ('' + ($i + 1) + '月$1日') + $addedOnSuffix
+        '[/^added ' + $addedMonthNames[$i] + ' (\d\d?)(?:, \d\d\d\d)?$/,' + ($addedOnLabel | ConvertTo-Json -Compress) + ']'
+    }
+    # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal, so inject the
+    # flat comma-joined rule elements -- wrapping them in [ ] would nest them as
+    # a single G entry and never match.
+    $addedMonthRulesJson = $addedMonthRuleParts -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
@@ -1524,6 +1568,18 @@ const G=[
 [/^Updated (\d+) weeks? ago$/,UW],
 [/^Updated (\d+) months? ago$/,UMO],
 [/^Updated (\d+) years? ago$/,UY],
+[/^(\d+)s ago$/,AS],
+[/^(\d+)m ago$/,AMN],
+[/^(\d+)h ago$/,AH],
+[/^(\d+)d ago$/,ADY],
+[/^(\d+)w ago$/,AWK],
+[/^added (\d+) minutes? ago$/,ADDMI],
+[/^added (\d+) hours? ago$/,ADDH],
+[/^added (\d+) days? ago$/,ADDD],
+[/^added (\d+) weeks? ago$/,ADDW],
+[/^added (\d+) months? ago$/,ADDMO],
+[/^added (\d+) years? ago$/,ADDY],
+__ADDED_MONTH_RULES__,
 [/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]
 ];
 const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace("$1",m[1])}};
@@ -1537,7 +1593,7 @@ T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {
